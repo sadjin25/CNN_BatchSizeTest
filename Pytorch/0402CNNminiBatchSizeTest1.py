@@ -5,7 +5,7 @@ import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import matplotlib.pyplot as plt
+import time
 
 train_batch_size = 1
 test_batch_size = 256
@@ -35,18 +35,6 @@ testset = torchvision.datasets.CIFAR10(root='./dataPT',train=False,
 testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                           shuffle=False, num_workers=0)
 
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
-def imshow(img):
-    img = img / 2 + 0.5
-    npimg = img.numpy()
-    plt.imshow(np.transpose(npimg, (1,2,0)))
-    plt.show()
-
-dataiter = iter(trainloader)
-images, labels = next(dataiter)
-
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
@@ -73,10 +61,11 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 net.train()
 
 for epoch in range(epoch_size):
-    running_loss = 0.0
-    for i, data in enumerate(trainloader, 0):
-        inputs, labels = data
+    delta_time = time.perf_counter()
+    total_loss = 0.0
+    train_cases = 0
 
+    for inputs, labels in trainloader:
         optimizer.zero_grad()
 
         outputs = net(inputs)
@@ -84,24 +73,22 @@ for epoch in range(epoch_size):
         loss.backward()
         optimizer.step()
 
-        running_loss += loss.item()
-        if(i % 2000 == 1999):
-            print(f"[{epoch+1}, {i+1:5d}] loss : {running_loss/2000:.3f}")
-            running_loss = 0.0
+        total_loss += loss.item() * labels.size(0)
+        train_cases += labels.size(0)
 
-print('FINISHED TRAIN')
+    delta_time = time.perf_counter() - delta_time
+    print(f'FINISHED EPOCH[{epoch+1}] TRAIN, ELAPSED TIME : [{delta_time*1000:.3f}] ms')
+    print(f"TRAIN EPOCH [{epoch+1}] LOSS : {total_loss/train_cases:.3f}")
+
 
 PATH = './dataPT/cifar_net_batchsize1.pth'
 torch.save(net.state_dict(), PATH)
-
-dataiter = iter(testloader)
-images, labels = next(dataiter)
 
 # EVALUATE
 running_loss = 0.0
 running_cases = 0
 total_loss = 0.0
-total_test_case = 0
+total_test_cases = 0
 net.eval()
 
 with torch.no_grad():
@@ -113,18 +100,18 @@ with torch.no_grad():
 
         # batch size 별 가중치 부여, batch size보다 작은 loss data는 total loss 평균 계산 보정함
         total_loss += loss.item() * labels.size(0)
-        total_test_case += labels.size(0)
+        total_test_cases += labels.size(0)
         running_loss += loss.item() * labels.size(0)
         running_cases += labels.size(0)
         
         if(i % 500 == 499):
-            print(f"TEST LOOP [{i/500}] loss : {running_loss/running_cases:.3f}")
+            print(f"TEST LOOP [{i/500}] LOSS : {running_loss/running_cases:.3f}")
             running_loss = 0.0
             running_cases = 0
 
 if(running_cases > 0) :
-    print(f"TEST LOOP [LAST] loss : {running_loss/running_cases:.3f}")
+    print(f"TEST LOOP [LAST] LOSS : {running_loss/running_cases:.3f}")
 
 
-print(f"TOTAL VERIFY LOSS : [{total_loss/total_test_case:.3f}]")
+print(f"TOTAL VERIFY LOSS : [{total_loss/total_test_cases:.3f}]")
 print("EVALUATE DONE")
