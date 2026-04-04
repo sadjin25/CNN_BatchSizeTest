@@ -17,9 +17,10 @@ Experiment Settings
 - PyTorch executed on CPU
 - num_workers = 0
 - Random seed = 245(NumPy, torch manual seed, Data loader generator)
-- Train batch size = 1
+- Train batch size = 4
 - Number of training epoch = 5
 - Background applications minimized
+
 - Reported training metrics will be averaged over 5 epochs
 '''
 
@@ -35,7 +36,7 @@ import time
 import psutil
 import os
 
-TRAIN_BATCH_SIZE = 1
+TRAIN_BATCH_SIZE = 4
 TEST_BATCH_SIZE = 256
 EPOCH_SIZE = 5
 SEED = 245
@@ -119,7 +120,7 @@ for epoch in range(EPOCH_SIZE):
 
 
 
-PATH = './dataPT/cifar_net_batchsize1.pth'
+PATH = './dataPT/cifar_net_batchsize4.pth'
 torch.save(net.state_dict(), PATH)
 
 # EVALUATE
