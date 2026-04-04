@@ -1,3 +1,29 @@
+'''
+2026-04-02 Woojin Park
+*** TEST ENVIRONMENT ***
+CPU-Only Training
+- CPU: 13th Gen Intel(R) Core(TM) i7-13650HX
+- Laptop: Legion 5 15IRX9
+- Power: 280W adapter connected
+- Lenovo Vantage Settings:
+  - Thermal Mode: Performance
+  - GPU Working Mode: Hybrid-Auto
+- Windows 11 Power Mode: Best Performance
+
+Experiment Settings
+- PyTorch executed on CPU
+- num_workers = 0
+- Random seed = 245(NumPy, torch manual seed, Data loader generator)
+
+- Train batch size = 1
+
+- Number of training epoch = 5
+- Background applications minimized
+
+- Reported training metrics are averaged over 5 epochs
+'''
+
+
 import torch
 import torch.optim as optim
 import torchvision
@@ -6,33 +32,35 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import time
+import psutil
+import os
 
-train_batch_size = 1
-test_batch_size = 256
-epoch_size = 5
-seed = 245
+TRAIN_BATCH_SIZE = 1
+TEST_BATCH_SIZE = 256
+EPOCH_SIZE = 5
+SEED = 245
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))]
 )
 
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
 g = torch.Generator()
-g.manual_seed(seed)
+g.manual_seed(SEED)
 
 # num_workers > 0일경우, windows 상에서 sub프로세스 하나 새로 띄움. 멀티프로세싱 꼬여서 RuntimeERR 발생가능
 trainset = torchvision.datasets.CIFAR10(root='./dataPT',train=True,
                                         download=True, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=TRAIN_BATCH_SIZE,
                                           shuffle=True, num_workers=0,
                                           generator=g)
 
 testset = torchvision.datasets.CIFAR10(root='./dataPT',train=False,
                                         download=True, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
+testloader = torch.utils.data.DataLoader(testset, batch_size=TEST_BATCH_SIZE,
                                           shuffle=False, num_workers=0)
 
 class Net(nn.Module):
@@ -60,7 +88,10 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 net.train()
 
-for epoch in range(epoch_size):
+process = psutil.Process(os.getpid())
+peak_ram = 0.0
+
+for epoch in range(EPOCH_SIZE):
     delta_time = time.perf_counter()
     total_loss = 0.0
     train_cases = 0
@@ -75,10 +106,17 @@ for epoch in range(epoch_size):
 
         total_loss += loss.item() * labels.size(0)
         train_cases += labels.size(0)
+        
+        ram = process.memory_info().rss
+        peak_ram = max(peak_ram, ram)
 
     delta_time = time.perf_counter() - delta_time
     print(f'FINISHED EPOCH[{epoch+1}] TRAIN, ELAPSED TIME : [{delta_time*1000:.3f}] ms')
+    print(f'THROUGHPUT : [{train_cases/delta_time:.3f}]')
     print(f"TRAIN EPOCH [{epoch+1}] LOSS : {total_loss/train_cases:.3f}")
+    # rss output is byte size.
+    print(f"PEAK RAM: {peak_ram / (1024**2):.2f} MB")
+
 
 
 PATH = './dataPT/cifar_net_batchsize1.pth'
@@ -89,6 +127,7 @@ running_loss = 0.0
 running_cases = 0
 total_loss = 0.0
 total_test_cases = 0
+correct_case = 0
 net.eval()
 
 with torch.no_grad():
@@ -103,6 +142,8 @@ with torch.no_grad():
         total_test_cases += labels.size(0)
         running_loss += loss.item() * labels.size(0)
         running_cases += labels.size(0)
+        preds = outputs.argmax(dim=1)
+        correct_cases += (preds == labels).sum().item()
         
         if(i % 500 == 499):
             print(f"TEST LOOP [{i/500}] LOSS : {running_loss/running_cases:.3f}")
@@ -112,6 +153,8 @@ with torch.no_grad():
 if(running_cases > 0) :
     print(f"TEST LOOP [LAST] LOSS : {running_loss/running_cases:.3f}")
 
-
+#맞춘 갯수
+print(f"TOTAL ACCURACY : [{correct_case/total_test_cases*100:.3f}]")
+#예상 확률이 정답에 얼마나 멀어졌는가
 print(f"TOTAL VERIFY LOSS : [{total_loss/total_test_cases:.3f}]")
 print("EVALUATE DONE")
