@@ -10,7 +10,7 @@ CPU-Only Training
 - Power: 280W adapter connected
 - Lenovo Vantage Settings:
   - Thermal Mode: Performance
-  - GPU Working Mode: Hybrid-Auto
+  - GPU Working Mode: dGPU Only
 - Windows 11 Power Mode: Best Performance
 
 Experiment Settings
@@ -52,13 +52,13 @@ g = torch.Generator()
 g.manual_seed(SEED)
 
 # num_workers > 0일경우, windows 상에서 sub프로세스 하나 새로 띄움. 멀티프로세싱 꼬여서 RuntimeERR 발생가능
-trainset = torchvision.datasets.CIFAR10(root='./dataPT',train=True,
+trainset = torchvision.datasets.CIFAR10(root='./CNN_BatchSizeTest/dataPT',train=True,
                                         download=True, transform=transform)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=TRAIN_BATCH_SIZE,
                                           shuffle=True, num_workers=0,
                                           generator=g)
 
-testset = torchvision.datasets.CIFAR10(root='./dataPT',train=False,
+testset = torchvision.datasets.CIFAR10(root='./CNN_BatchSizeTest/dataPT',train=False,
                                         download=True, transform=transform)
 testloader = torch.utils.data.DataLoader(testset, batch_size=TEST_BATCH_SIZE,
                                           shuffle=False, num_workers=0)
@@ -119,7 +119,7 @@ for epoch in range(EPOCH_SIZE):
 
 
 
-PATH = './dataPT/cifar_net_batchsize1.pth'
+PATH = './CNN_BatchSizeTest/dataPT/cifar_net_batchsize1.pth'
 torch.save(net.state_dict(), PATH)
 
 # EVALUATE
